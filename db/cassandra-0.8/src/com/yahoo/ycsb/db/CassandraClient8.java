@@ -79,6 +79,10 @@ public class CassandraClient8 extends DB
   public static final String CONSISTENCY_WRITE_PROPERTY = "cassandra.consistency_write";
   public static final String CONSISTENCY_WRITE_PROPERTY_DEFAULT = "1"; // ONE
 
+  public static final String TABLENAME_PROPERTY = "table";
+  public static final String TABLENAME_PROPERTY_DEFAULT = "usertable";
+  public static String table;
+
   TTransport tr;
   Cassandra.Client client;
 
@@ -96,6 +100,7 @@ public class CassandraClient8 extends DB
       throw new DBException("Required property \"hosts\" missing for CassandraClient");
     }
 
+    table = getProperties().getProperty(TABLENAME_PROPERTY,TABLENAME_PROPERTY_DEFAULT);
     column_family = getProperties().getProperty(COLUMN_FAMILY_PROPERTY, COLUMN_FAMILY_PROPERTY_DEFAULT);
     consistency_read = ConsistencyLevel.findByValue(Integer.parseInt(getProperties().getProperty(CONSISTENCY_READ_PROPERTY, CONSISTENCY_READ_PROPERTY_DEFAULT)));
     consistency_write = ConsistencyLevel.findByValue(Integer.parseInt(getProperties().getProperty(CONSISTENCY_WRITE_PROPERTY, CONSISTENCY_WRITE_PROPERTY_DEFAULT)));
@@ -124,6 +129,7 @@ public class CassandraClient8 extends DB
       try
       {
         tr.open();
+        client.set_keyspace(table);
         connectexception = null;
         break;
       } catch (Exception e)
@@ -229,15 +235,6 @@ public class CassandraClient8 extends DB
   public int read(String table, String key, Set<String> fields, HashMap<String, String> result)
   {
     Exception errorexception = null;
-    try
-    {
-      client.set_keyspace(table);
-    } catch (Exception e)
-    {
-      e.printStackTrace();
-      e.printStackTrace(System.out);
-      return Error;
-    }
 
     for (int i = 0; i < OperationRetries; i++)
     {
@@ -348,16 +345,6 @@ public class CassandraClient8 extends DB
   {
     Exception errorexception = null;
 
-    try
-    {
-      client.set_keyspace(table);
-    } catch (Exception e)
-    {
-      e.printStackTrace();
-      e.printStackTrace(System.out);
-      return Error;
-    }
-
     for (int i = 0; i < OperationRetries; i++)
     {
 
@@ -467,16 +454,6 @@ public class CassandraClient8 extends DB
   {
     Exception errorexception = null;
 
-    try
-    {
-      client.set_keyspace(table);
-    } catch (Exception e)
-    {
-      e.printStackTrace();
-      e.printStackTrace(System.out);
-      return Error;
-    }
-
     for (int i = 0; i < OperationRetries; i++)
     {
       // insert data
@@ -561,16 +538,6 @@ public class CassandraClient8 extends DB
   public int delete(String table, String key)
   {
     Exception errorexception = null;
-
-    try
-    {
-      client.set_keyspace(table);
-    } catch (Exception e)
-    {
-      e.printStackTrace();
-      e.printStackTrace(System.out);
-      return Error;
-    }
 
     for (int i = 0; i < OperationRetries; i++)
     {
