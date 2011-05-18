@@ -1,29 +1,25 @@
-/**                                                                                                                                                                                
- * Copyright (c) 2010 Yahoo! Inc. All rights reserved.                                                                                                                             
- *                                                                                                                                                                                 
- * Licensed under the Apache License, Version 2.0 (the "License"); you                                                                                                             
- * may not use this file except in compliance with the License. You                                                                                                                
- * may obtain a copy of the License at                                                                                                                                             
- *                                                                                                                                                                                 
- * http://www.apache.org/licenses/LICENSE-2.0                                                                                                                                      
- *                                                                                                                                                                                 
- * Unless required by applicable law or agreed to in writing, software                                                                                                             
- * distributed under the License is distributed on an "AS IS" BASIS,                                                                                                               
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or                                                                                                                 
- * implied. See the License for the specific language governing                                                                                                                    
- * permissions and limitations under the License. See accompanying                                                                                                                 
- * LICENSE file.                                                                                                                                                                   
+/**
+ * Copyright (c) 2010 Yahoo! Inc. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You
+ * may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied. See the License for the specific language governing
+ * permissions and limitations under the License. See accompanying
+ * LICENSE file.
  */
 
 package com.yahoo.ycsb.db;
 
 import com.yahoo.ycsb.*;
 
-import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +28,7 @@ import java.util.HashSet;
 import java.util.Vector;
 import java.util.Random;
 import java.util.Properties;
+import java.nio.ByteBuffer;
 
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TFramedTransport;
@@ -40,7 +37,6 @@ import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.cassandra.thrift.*;
 
-import org.apache.cassandra.utils.FBUtilities;
 
 //XXXX if we do replication, fix the consistency levels
 /**
@@ -51,12 +47,11 @@ public class CassandraClient7 extends DB
   static Random random = new Random();
   public static final int Ok = 0;
   public static final int Error = -1;
+  public static final ByteBuffer emptyByteBuffer = ByteBuffer.wrap(new byte[0]);
 
   public int ConnectionRetries;
   public int OperationRetries;
   public String column_family;
-  public ConsistencyLevel consistency_read;
-  public ConsistencyLevel consistency_write;
 
   public static final String CONNECTION_RETRY_PROPERTY = "cassandra.connectionretries";
   public static final String CONNECTION_RETRY_PROPERTY_DEFAULT = "300";
@@ -69,11 +64,6 @@ public class CassandraClient7 extends DB
 
   public static final String COLUMN_FAMILY_PROPERTY = "cassandra.columnfamily";
   public static final String COLUMN_FAMILY_PROPERTY_DEFAULT = "data";
-
-  public static final String CONSISTENCY_READ_PROPERTY = "cassandra.consistency_read";
-  public static final String CONSISTENCY_READ_PROPERTY_DEFAULT = "1"; // ONE
-  public static final String CONSISTENCY_WRITE_PROPERTY = "cassandra.consistency_write";
-  public static final String CONSISTENCY_WRITE_PROPERTY_DEFAULT = "1"; // ONE
 
   TTransport tr;
   Cassandra.Client client;
@@ -93,8 +83,6 @@ public class CassandraClient7 extends DB
     }
 
     column_family = getProperties().getProperty(COLUMN_FAMILY_PROPERTY, COLUMN_FAMILY_PROPERTY_DEFAULT);
-    consistency_read = ConsistencyLevel.findByValue(Integer.parseInt(getProperties().getProperty(CONSISTENCY_READ_PROPERTY, CONSISTENCY_READ_PROPERTY_DEFAULT)));
-    consistency_write = ConsistencyLevel.findByValue(Integer.parseInt(getProperties().getProperty(CONSISTENCY_WRITE_PROPERTY, CONSISTENCY_WRITE_PROPERTY_DEFAULT)));
 
     ConnectionRetries = Integer.parseInt(getProperties().getProperty(CONNECTION_RETRY_PROPERTY,
         CONNECTION_RETRY_PROPERTY_DEFAULT));
@@ -167,46 +155,6 @@ public class CassandraClient7 extends DB
     tr.close();
   }
 
-  private ByteBuffer tob(String str)
-  {
-    try
-    {
-      return ByteBuffer.wrap(str.getBytes("UTF-8"));
-    }
-    catch (UnsupportedEncodingException e)
-    {
-      throw new AssertionError(e);
-    }
-  }
-
-  /** TODO: Next two methods copied from ByteBufferUtil in Cassandra trunk. */
-  public static String tos(ByteBuffer buffer)
-  {
-    int offset = buffer.position();
-    int length = buffer.remaining();
-    Charset charset = Charset.defaultCharset();
-    if (buffer.hasArray())
-      return new String(buffer.array(), buffer.arrayOffset() + offset, length + buffer.arrayOffset(), charset);
-
-    byte[] buff = getArray(buffer, offset, length);
-    return new String(buff, charset);
-  }
-
-  public static byte[] getArray(ByteBuffer b, int start, int length)
-  {
-    if (b.hasArray())
-      return Arrays.copyOfRange(b.array(), start + b.arrayOffset(), start + length + b.arrayOffset());
-
-    byte[] bytes = new byte[length];
-
-    for (int i = 0; i < length; i++)
-    {
-      bytes[i] = b.get(start++);
-    }
-
-    return bytes;
-  }
-
   /**
    * Read a record from the database. Each field/value pair from the result will
    * be stored in a HashMap.
@@ -245,8 +193,8 @@ public class CassandraClient7 extends DB
         {
 
           SliceRange sliceRange = new SliceRange();
-          sliceRange.setStart(new byte[0]);
-          sliceRange.setFinish(new byte[0]);
+          sliceRange.setStart(emptyByteBuffer);
+          sliceRange.setFinish(emptyByteBuffer);;
           sliceRange.setCount(1000000);
 
           predicate = new SlicePredicate();
@@ -256,7 +204,7 @@ public class CassandraClient7 extends DB
           ArrayList<ByteBuffer> fieldlist = new ArrayList<ByteBuffer>(fields.size());
           for (String s : fields)
           {
-            fieldlist.add(tob(s));
+	    fieldlist.add(ByteBuffer.wrap(s.getBytes("UTF-8")));
           }
 
           predicate = new SlicePredicate();
@@ -264,8 +212,8 @@ public class CassandraClient7 extends DB
         }
 
         ColumnParent parent = new ColumnParent(column_family);
-        List<ColumnOrSuperColumn> results = client.get_slice(tob(key), parent, predicate,
-            consistency_read);
+        List<ColumnOrSuperColumn> results = client.get_slice(ByteBuffer.wrap(key.getBytes("UTF-8")), parent, predicate,
+            ConsistencyLevel.ONE);
 
         if (_debug)
         {
@@ -274,12 +222,17 @@ public class CassandraClient7 extends DB
 
         for (ColumnOrSuperColumn oneresult : results)
         {
+
           Column column = oneresult.column;
-          result.put(tos(column.name), tos(column.value));
+	    
+	  String name = new String(column.name.array(), column.name.position()+column.name.arrayOffset(), column.name.remaining());
+	  String value = new String(column.value.array(), column.value.position()+column.value.arrayOffset(), column.value.remaining());
+
+          result.put(name,value);
 
           if (_debug)
           {
-            System.out.print("(" + tos(column.name) + "=" + tos(column.value) + ")");
+            System.out.print("(" + name + "=" + value + ")");
           }
         }
 
@@ -348,8 +301,8 @@ public class CassandraClient7 extends DB
         if (fields == null)
         {
           SliceRange sliceRange = new SliceRange();
-          sliceRange.setStart(new byte[0]);
-          sliceRange.setFinish(new byte[0]);
+          sliceRange.setStart(emptyByteBuffer);
+          sliceRange.setFinish(emptyByteBuffer);
           sliceRange.setCount(1000000);
           predicate = new SlicePredicate();
           predicate.setSlice_range(sliceRange);
@@ -358,15 +311,15 @@ public class CassandraClient7 extends DB
           ArrayList<ByteBuffer> fieldlist = new ArrayList<ByteBuffer>(fields.size());
           for (String s : fields)
           {
-            fieldlist.add(tob(s));
+	    fieldlist.add(ByteBuffer.wrap(s.getBytes("UTF-8")));
           }
           predicate = new SlicePredicate();
           predicate.setColumn_names(fieldlist);
         }
         ColumnParent parent = new ColumnParent(column_family);
-        KeyRange kr = new KeyRange().setStart_key(tob(startkey)).setEnd_key(FBUtilities.EMPTY_BYTE_BUFFER).setCount(recordcount);
+        KeyRange kr = new KeyRange().setStart_key(startkey.getBytes("UTF-8")).setEnd_key(new byte[] {}).setCount(recordcount);
 
-        List<KeySlice> results = client.get_range_slices(parent, predicate, kr, consistency_read);
+        List<KeySlice> results = client.get_range_slices(parent, predicate, kr, ConsistencyLevel.ONE);
 
         if (_debug)
         {
@@ -379,13 +332,16 @@ public class CassandraClient7 extends DB
 
           for (ColumnOrSuperColumn onecol : oneresult.columns)
           {
-            Column column = onecol.column;
-            tuple.put(tos(column.name), tos(column.value));
+	    Column column = onecol.column;
+	    String name = new String(column.name.array(), column.name.position()+column.name.arrayOffset(), column.name.remaining());
+	    String value = new String(column.value.array(), column.value.position()+column.value.arrayOffset(), column.value.remaining());
+            
+	    tuple.put(name, value);
 
             if (_debug)
             {
               System.out
-                  .print("(" + tos(column.name) + "=" + tos(column.value) + ")");
+                  .print("(" + name + "=" + value + ")");
             }
           }
 
@@ -469,12 +425,12 @@ public class CassandraClient7 extends DB
         ArrayList<Mutation> v = new ArrayList<Mutation>(values.size());
         Map<String, List<Mutation>> cfMutationMap = new HashMap<String, List<Mutation>>();
         cfMutationMap.put(column_family, v);
-        batch_mutation.put(tob(key), cfMutationMap);
+        batch_mutation.put(ByteBuffer.wrap(key.getBytes("UTF-8")), cfMutationMap);
 
         for (String field : values.keySet())
         {
           String val = values.get(field);
-          Column col = new Column(tob(field), tob(val), timestamp);
+          Column col = new Column(ByteBuffer.wrap(field.getBytes("UTF-8")), ByteBuffer.wrap(val.getBytes("UTF-8")), timestamp);
 
           ColumnOrSuperColumn c = new ColumnOrSuperColumn();
           c.setColumn(col);
@@ -484,7 +440,7 @@ public class CassandraClient7 extends DB
           v.add(m);
         }
 
-        client.batch_mutate(batch_mutation, consistency_write);
+        client.batch_mutate(batch_mutation, ConsistencyLevel.ONE);
 
         if (_debug)
         {
@@ -536,8 +492,8 @@ public class CassandraClient7 extends DB
     {
       try
       {
-        client.remove(tob(key), new ColumnPath(column_family), System.currentTimeMillis(),
-            consistency_write);
+	client.remove(ByteBuffer.wrap(key.getBytes("UTF-8")), new ColumnPath(column_family), System.currentTimeMillis(),
+            ConsistencyLevel.ONE);
 
         if (_debug)
         {
